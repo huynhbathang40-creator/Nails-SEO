@@ -9,7 +9,7 @@ import Clients from './app/Clients.jsx';
 import Reviews from './app/Reviews.jsx';
 import Templates from './app/Templates.jsx';
 import Settings from './app/Settings.jsx';
-import Setup from './app/Setup.jsx';
+import CreateProfile from './app/CreateProfile.jsx';
 import Profile from './app/Profile.jsx';
 import RequireAuth from './app/RequireAuth.jsx';
 import Login from './pages/Login.jsx';
@@ -32,7 +32,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Navigate to="/login?mode=signup" replace />} />
         <Route element={<RequireAuth />}>
-          <Route path="/app/setup" element={<Setup />} />
+          <Route path="/app/create-profile" element={<CreateProfile />} />
+          <Route path="/app/setup" element={<Navigate to="/app/create-profile" replace />} />
           <Route path="/app" element={<AppLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="clients" element={<Clients />} />

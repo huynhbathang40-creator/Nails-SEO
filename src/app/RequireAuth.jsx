@@ -5,7 +5,7 @@ import { storageKeyFor, StoreProvider } from '../lib/store.jsx';
 
 // Gate for /app: signed-out visitors go to /login, then come back here.
 export default function RequireAuth() {
-  const { user, loading } = useAuth();
+  const { user, loading, profileStatus } = useAuth();
   const location = useLocation();
   if (loading) {
     return (
@@ -17,6 +17,10 @@ export default function RequireAuth() {
   if (!user) {
     const next = location.pathname + location.search;
     return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
+  }
+  // Signed in but no profile yet: create one first.
+  if (profileStatus === 'missing' && location.pathname !== '/app/create-profile') {
+    return <Navigate to="/app/create-profile" replace />;
   }
   // Each account gets its own salon data.
   return (

@@ -78,6 +78,22 @@ export function sampleData() {
   return { ...EMPTY, salon, clients, activity, reviews, sample: true };
 }
 
+// Salon settings built from the user's database profile (used the first time on each device).
+export function salonFromProfile(p) {
+  if (!p) return {};
+  const pick = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v));
+  return pick({
+    name: p.salon_name || p.full_name,
+    owner: p.full_name,
+    phone: p.phone,
+    city: p.city,
+    email: p.email,
+    googleReviewLink: p.google_review_link,
+    bookingLink: p.booking_link,
+    textLanguage: p.preferred_language === 'vi' ? 'vi' : 'en',
+  });
+}
+
 // Which clients need something today.
 export function clientStatus(client, salon) {
   const weeks = weeksSince(client.lastVisit);

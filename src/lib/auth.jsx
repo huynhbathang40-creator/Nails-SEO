@@ -3,11 +3,17 @@ import { supabase } from './supabase.js';
 
 const AuthContext = createContext(null);
 
-const PROFILE_FIELDS = 'id, email, full_name, salon_name, phone, city, preferred_language, created_at, updated_at';
+export const PROFILE_FIELDS = 'id, email, full_name, salon_name, phone, city, preferred_language, bio, avatar_url, google_review_link, booking_link, completed_at, created_at, updated_at';
+
+// Fields a user may write. id/email/created_at are set once and protected by the database.
+const EDITABLE = ['full_name', 'salon_name', 'phone', 'city', 'preferred_language', 'bio', 'avatar_url', 'google_review_link', 'booking_link'];
+const pickEditable = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => EDITABLE.includes(k)));
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
+  // 'idle' (signed out) | 'loading' | 'missing' (signed in, no profile yet) | 'ready'
+  const [profileStatus, setProfileStatus] = useState('idle');
   const [loading, setLoading] = useState(true);
   const user = session?.user ?? null;
 
@@ -20,22 +26,16 @@ export function AuthProvider({ children }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  const userId = user?.id;
   const loadProfile = useCallback(async () => {
-    if (!user) { setProfile(null); return null; }
-    const { data, error } = await supabase.from('profiles').select(PROFILE_FIELDS).eq('id', user.id).maybeSingle();
-    if (error) throw error;
-    if (data) { setProfile(data); return data; }
-    // Safety net: the database trigger normally creates this row at sign-up.
-    const meta = user.user_metadata || {};
-    const { data: created, error: insertError } = await supabase
-      .from('profiles')
-      .insert({ id: user.id, email: user.email, full_name: meta.full_name || '', salon_name: meta.salon_name || '', preferred_language: meta.preferred_language === 'vi' ? 'vi' : 'en' })
-      .select(PROFILE_FIELDS)
-      .single();
-    if (insertError) throw insertError;
-    setProfile(created);
-    return created;
-  }, [user]);
+    if (!userId) { setProfile(null); setProfileStatus('idle'); return null; }
+    setProfileStatus('loading');
+    const { data, error } = await supabase.from('profiles').select(PROFILE_FIELDS).eq('id', userId).maybeSingle();
+    if (error) { setProfileStatus('missing'); throw error; }
+    setProfile(data);
+    setProfileStatus(data && data.completed_at ? 'ready' : 'missing');
+    return data;
+  }, [userId]);
 
   useEffect(() => {
     loadProfile().catch((e) => console.error('Could not load profile', e));
@@ -45,7 +45,8 @@ export function AuthProvider({ children }) {
     session,
     user,
     profile,
-    loading,
+    profileStatus,
+    loading: loading || (!!user && (profileStatus === 'idle' || profileStatus === 'loading') && !profile),
     async signIn(email, password) {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
@@ -68,19 +69,42 @@ export function AuthProvider({ children }) {
     async signOut() {
       await supabase.auth.signOut();
       setProfile(null);
+      setProfileStatus('idle');
+    },
+    // The user creates their own profile (or finishes one that already exists).
+    async createProfile(fields) {
+      const row = { ...pickEditable(fields), completed_at: new Date().toISOString() };
+      const query = profile
+        ? supabase.from('profiles').update(row).eq('id', user.id)
+        : supabase.from('profiles').insert({ ...row, id: user.id, email: user.email });
+      const { data, error } = await query.select(PROFILE_FIELDS).single();
+      if (error) throw error;
+      setProfile(data);
+      setProfileStatus('ready');
+      return data;
     },
     async updateProfile(patch) {
-      const { data, error } = await supabase.from('profiles').update(patch).eq('id', user.id).select(PROFILE_FIELDS).single();
+      const { data, error } = await supabase.from('profiles').update(pickEditable(patch)).eq('id', user.id).select(PROFILE_FIELDS).single();
       if (error) throw error;
       setProfile(data);
       return data;
+    },
+    // Uploads a profile photo to Storage (avatars/<user id>/...) and returns its public URL.
+    async uploadAvatar(file) {
+      if (!file.type.startsWith('image/')) throw new Error('Please choose an image file.');
+      if (file.size > 2 * 1024 * 1024) throw new Error('Please choose an image under 2 MB.');
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true, cacheControl: '3600' });
+      if (error) throw error;
+      return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;
     },
     async updatePassword(password) {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
     },
     reloadProfile: loadProfile,
-  }), [session, user, profile, loading, loadProfile]);
+  }), [session, user, profile, profileStatus, loading, loadProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

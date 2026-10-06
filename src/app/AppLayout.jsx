@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Back, Edit, Gear, Home, Logo, StarLine, User, Users } from '../components/Icons.jsx';
 import { useAuth } from '../lib/auth.jsx';
 import { useLang } from '../lib/i18n.jsx';
-import { clientStatus, useStore } from '../lib/store.jsx';
+import { clientStatus, salonFromProfile, useStore } from '../lib/store.jsx';
+import { Avatar } from './Avatar.jsx';
 import { useS } from './ui.jsx';
 
 const NAV = [
@@ -46,16 +47,25 @@ export default function AppLayout() {
     return { home: todo, reviews: unreplied };
   }, [store.clients, store.reviews, store.salon]);
 
-  if (!store.salon) return <Navigate to="/app/setup" replace />;
+  // First visit on this device: start the salon settings from the user's profile.
+  const { salon, setupSalon } = store;
+  useEffect(() => {
+    if (!salon && auth.profile) setupSalon(salonFromProfile(auth.profile));
+  }, [salon, auth.profile, setupSalon]);
+
+  if (!store.salon) return auth.profile ? null : <Navigate to="/app/create-profile" replace />;
 
   return (
     <div className="app">
       <aside className="app-side">
         <Link to="/" style={{ textDecoration: 'none', padding: '4px 10px 18px' }}><Logo size={32} fontSize={24} /></Link>
-        <div style={{ padding: '0 12px 14px' }}>
-          <div className="truncate" style={{ fontWeight: 600 }}>{store.salon.name}</div>
-          <div className="muted small truncate" title={auth.user?.email}>{auth.user?.email}</div>
-        </div>
+        <Link to="/app/profile" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px 14px', textDecoration: 'none', color: 'inherit' }}>
+          <Avatar url={auth.profile?.avatar_url} name={auth.profile?.full_name || auth.user?.email} size={40} />
+          <div style={{ minWidth: 0 }}>
+            <div className="truncate" style={{ fontWeight: 600 }}>{store.salon.name}</div>
+            <div className="muted small truncate" title={auth.user?.email}>{auth.profile?.full_name || auth.user?.email}</div>
+          </div>
+        </Link>
         <nav className="app-nav" aria-label="App" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {NAV.map(([k, to, Icon, end]) => (
             <NavLink key={k} to={to} end={end}>
@@ -72,7 +82,10 @@ export default function AppLayout() {
 
       <header className="app-mobile-top">
         <Link to="/app" style={{ textDecoration: 'none', minWidth: 0 }}><Logo size={28} fontSize={20} /></Link>
-        <LangSeg />
+        <div className="hstack" style={{ flexWrap: 'nowrap' }}>
+          <LangSeg />
+          <Link to="/app/profile" aria-label={s.navLong.profile}><Avatar url={auth.profile?.avatar_url} name={auth.profile?.full_name || auth.user?.email} size={34} /></Link>
+        </div>
       </header>
 
       <main className="app-main">
@@ -80,7 +93,7 @@ export default function AppLayout() {
           {store.sample && (
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: '#FFF8E6', border: '1px solid #FDE7A9', borderRadius: 22, padding: '12px 18px', fontSize: 14 }}>
               <span>{s.sampleBanner}</span>
-              <button type="button" className="btn btn-primary btn-xs" onClick={() => { store.resetAll(); navigate('/app/setup'); }}>{s.startFresh}</button>
+              <button type="button" className="btn btn-primary btn-xs" onClick={() => { store.resetAll(); navigate('/app'); }}>{s.startFresh}</button>
             </div>
           )}
           <Outlet context={{ toast }} />

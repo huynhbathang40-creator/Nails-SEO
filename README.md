@@ -12,9 +12,14 @@ The project has two parts:
   - **Review replies:** paste a Google review to get a polite suggested reply to copy.
   - **Text templates** and **Salon settings** (Google review link, booking link, win-back timing).
 
-- **Login & profile:** email + password accounts through **Supabase Auth**. `/login` signs in or creates an account. `/app/profile` shows and edits the user's profile (name, salon, phone, city, language), changes the password and signs out. All of `/app` requires sign-in.
+- **Login & profiles:** email + password accounts through **Supabase Auth**. `/login` signs in or creates an account. All of `/app` requires sign-in.
+  - **Create your profile** (`/app/create-profile`): after signing up, each user creates their own profile in two steps. Step 1 is about them: photo, name, phone, language, bio. Step 2 is their salon: name, city, Google review link, booking link. Users can't reach the dashboard until their profile exists.
+  - **My profile** (`/app/profile`): view and edit everything above, upload or change the photo, change password, sign out.
 
-Built with React and Vite. Accounts and profiles live in Supabase (project `glowback`, table `public.profiles`, protected by row-level security so each user can only see their own row). The salon's client list and texts are saved in the browser, separately for each account. Use Settings → Download backup to keep a copy.
+Built with React and Vite. Accounts and profiles live in Supabase (project `glowback`):
+- **`public.profiles` table:** one row per user, created by the user. Row-level security means a user can only create, read, edit or delete their own profile. A database trigger stops anyone changing a profile's id, email or creation date.
+- **`avatars` storage bucket:** holds profile photos (max 2 MB, images only). Users can only upload into their own folder.
+- **SQL files:** the full database setup is in `supabase/migrations/`. The salon's client list and texts are saved in the browser, separately for each account. Use Settings → Download backup to keep a copy.
 
 ## Deploy on Netlify
 

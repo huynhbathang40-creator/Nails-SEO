@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Upload } from '../components/Icons.jsx';
+import { useAuth } from '../lib/auth.jsx';
 import { useStore } from '../lib/store.jsx';
 import SalonFields from './SalonFields.jsx';
 import { useS } from './ui.jsx';
@@ -9,6 +10,7 @@ export default function Settings() {
   const s = useS();
   const { toast } = useOutletContext();
   const store = useStore();
+  const auth = useAuth();
   const navigate = useNavigate();
   const [draft, setDraft] = useState(store.salon);
   const [err, setErr] = useState({});
@@ -24,6 +26,11 @@ export default function Settings() {
     e.preventDefault();
     if (!draft.name.trim()) return setErr({ name: s.nameErr });
     store.updateSalon({ ...draft, name: draft.name.trim() });
+    // Salon basics also live on the user's profile in the database.
+    auth.updateProfile({
+      salon_name: draft.name.trim(), full_name: draft.owner.trim() || auth.profile?.full_name || '', phone: draft.phone,
+      city: draft.city.trim(), google_review_link: draft.googleReviewLink.trim(), booking_link: draft.bookingLink.trim(),
+    }).catch((err) => console.error('Profile sync failed', err));
     toast(s.saved);
   };
 
@@ -91,7 +98,7 @@ export default function Settings() {
           <button type="button" className="btn btn-quiet btn-sm" onClick={() => fileRef.current?.click()}><Upload size={16} />{s.importData}</button>
           <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={restore} />
           <button type="button" className="btn btn-quiet btn-sm" onClick={() => { store.loadSample(); navigate('/app'); }}>{s.loadSample}</button>
-          <button type="button" className="btn btn-danger btn-sm" onClick={() => { if (window.confirm(s.eraseConfirm)) { store.resetAll(); navigate('/app/setup'); } }}>{s.eraseAll}</button>
+          <button type="button" className="btn btn-danger btn-sm" onClick={() => { if (window.confirm(s.eraseConfirm)) { store.resetAll(); navigate('/app'); } }}>{s.eraseAll}</button>
         </div>
       </section>
     </>

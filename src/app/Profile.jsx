@@ -4,14 +4,20 @@ import { authErrorMessage, useAuth } from '../lib/auth.jsx';
 import { fmtPhone } from '../lib/calc.js';
 import { useLang } from '../lib/i18n.jsx';
 import { useStore } from '../lib/store.jsx';
-import { initials, useS } from './ui.jsx';
+import { Avatar, AvatarPicker } from './Avatar.jsx';
+import { isLink } from './CreateProfile.jsx';
+import { useS } from './ui.jsx';
 
 const fromProfile = (p) => ({
+  avatar_url: p?.avatar_url || '',
   full_name: p?.full_name || '',
-  salon_name: p?.salon_name || '',
   phone: p?.phone || '',
-  city: p?.city || '',
   preferred_language: p?.preferred_language === 'vi' ? 'vi' : 'en',
+  bio: p?.bio || '',
+  salon_name: p?.salon_name || '',
+  city: p?.city || '',
+  google_review_link: p?.google_review_link || '',
+  booking_link: p?.booking_link || '',
 });
 
 export default function Profile() {
@@ -25,27 +31,32 @@ export default function Profile() {
   const [form, setForm] = useState(() => fromProfile(auth.profile));
   const [syncSalon, setSyncSalon] = useState(true);
   const [status, setStatus] = useState('idle');
+  const [errors, setErrors] = useState({});
   const [err, setErr] = useState('');
   const [pw, setPw] = useState({ next: '', confirm: '', status: 'idle', err: '' });
 
   useEffect(() => { setForm(fromProfile(auth.profile)); }, [auth.profile]);
 
-  const set = (k, fmt) => (e) => { setForm((f) => ({ ...f, [k]: fmt ? fmt(e.target.value) : e.target.value })); setErr(''); };
+  const set = (k, fmt) => (e) => { setForm((f) => ({ ...f, [k]: fmt ? fmt(e.target.value) : e.target.value })); setErrors((x) => ({ ...x, [k]: null })); setErr(''); };
   const dirty = JSON.stringify(form) !== JSON.stringify(fromProfile(auth.profile));
 
-  const save = async (e) => {
-    e.preventDefault();
-    if (!form.full_name.trim()) return setErr(all.auth.nameErr);
+  const save = async (patch = form) => {
+    const er = {};
+    if (!patch.full_name.trim()) er.full_name = all.auth.nameErr;
+    if (!isLink(patch.google_review_link)) er.google_review_link = s.linkErr;
+    if (!isLink(patch.booking_link)) er.booking_link = s.linkErr;
+    setErrors(er);
+    if (Object.keys(er).length) return;
     setStatus('loading');
     try {
-      const saved = await auth.updateProfile({ ...form, full_name: form.full_name.trim(), salon_name: form.salon_name.trim(), city: form.city.trim() });
+      const trimmed = Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]));
+      const saved = await auth.updateProfile(trimmed);
       if (syncSalon && store.salon && !store.sample) {
-        store.updateSalon({
-          ...(saved.salon_name ? { name: saved.salon_name } : {}),
-          owner: saved.full_name,
-          ...(saved.phone ? { phone: saved.phone } : {}),
-          ...(saved.city ? { city: saved.city } : {}),
-        });
+        const pick = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v));
+        store.updateSalon(pick({
+          name: saved.salon_name, owner: saved.full_name, phone: saved.phone, city: saved.city,
+          googleReviewLink: saved.google_review_link, bookingLink: saved.booking_link,
+        }));
       }
       if (saved.preferred_language !== lang) setLang(saved.preferred_language);
       toast(s.saved);
@@ -54,6 +65,13 @@ export default function Profile() {
     } finally {
       setStatus('idle');
     }
+  };
+
+  // A new photo is saved right away so it isn't lost if the user navigates off.
+  const onAvatar = (url) => {
+    const next = { ...fromProfile(auth.profile), avatar_url: url };
+    setForm((f) => ({ ...f, avatar_url: url }));
+    save(next);
   };
 
   const changePassword = async (e) => {
@@ -88,35 +106,37 @@ export default function Profile() {
       </div>
 
       <section className="panel" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
-        <span className="avatar" style={{ width: 64, height: 64, fontSize: 22, background: 'var(--rainbow)', color: '#fff' }}>{initials(form.full_name || auth.user?.email)}</span>
+        <Avatar url={auth.profile?.avatar_url} name={auth.profile?.full_name || auth.user?.email} size={72} />
         <div className="grow" style={{ minWidth: 200 }}>
           <div style={{ fontWeight: 600, fontSize: 20 }}>{auth.profile?.full_name || '—'}</div>
-          <div className="muted truncate">{auth.user?.email}</div>
+          <div className="muted">{[auth.profile?.salon_name, auth.profile?.city].filter(Boolean).join(' · ')}</div>
+          <div className="muted small truncate">{auth.user?.email}</div>
           {since && <div className="muted small">{s.memberSince} {new Date(since).toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>}
         </div>
+        {auth.profile?.bio && <p style={{ margin: 0, flexBasis: '100%', color: 'var(--text-2)', whiteSpace: 'pre-wrap' }}>{auth.profile.bio}</p>}
       </section>
 
-      <form className="panel stack" onSubmit={save} noValidate>
+      <form className="panel stack" onSubmit={(e) => { e.preventDefault(); save(); }} noValidate>
         <h2>{s.account}</h2>
+        <div className="field">{s.photo}
+          <AvatarPicker url={form.avatar_url} name={form.full_name || auth.user?.email} onChange={onAvatar} labels={all.avatar} />
+        </div>
         <label className="field">{s.email}
           <input className="input" value={auth.user?.email || ''} readOnly disabled style={{ background: 'var(--surface)', color: 'var(--muted)' }} />
         </label>
         <div className="grid-2">
           <label className="field">{s.fullName}
-            <input className="input" autoComplete="name" value={form.full_name} onChange={set('full_name')} aria-invalid={!!err && !form.full_name.trim()} />
+            <input className="input" autoComplete="name" maxLength={100} value={form.full_name} onChange={set('full_name')} aria-invalid={!!errors.full_name} />
+            {errors.full_name && <span className="err">{errors.full_name}</span>}
           </label>
-          <label className="field">{s.salonName}
-            <input className="input" autoComplete="organization" value={form.salon_name} onChange={set('salon_name')} />
-          </label>
-        </div>
-        <div className="grid-2">
           <label className="field">{s.phone}
             <input className="input" type="tel" autoComplete="tel" value={form.phone} onChange={set('phone', fmtPhone)} placeholder="(561) 555-0123" />
           </label>
-          <label className="field">{s.city}
-            <input className="input" value={form.city} onChange={set('city')} placeholder="Delray Beach, FL" />
-          </label>
         </div>
+        <label className="field">{s.bio}
+          <textarea className="input" rows={3} maxLength={500} value={form.bio} onChange={set('bio')} placeholder={all.create.bioPh} />
+          <span className="hint" style={{ alignSelf: 'flex-end' }}>{form.bio.length}/500</span>
+        </label>
         <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
           <legend style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>{s.language}</legend>
           <div className="seg block" style={{ maxWidth: 420 }}>
@@ -124,6 +144,24 @@ export default function Profile() {
             <button type="button" aria-pressed={form.preferred_language === 'vi'} onClick={() => setForm((f) => ({ ...f, preferred_language: 'vi' }))}>Tiếng Việt</button>
           </div>
         </fieldset>
+
+        <h2 style={{ marginTop: 8 }}>{s.salonSection}</h2>
+        <div className="grid-2">
+          <label className="field">{s.salonName}
+            <input className="input" autoComplete="organization" maxLength={120} value={form.salon_name} onChange={set('salon_name')} />
+          </label>
+          <label className="field">{s.city}
+            <input className="input" maxLength={100} value={form.city} onChange={set('city')} placeholder="Delray Beach, FL" />
+          </label>
+        </div>
+        <label className="field">{s.googleLink}
+          <input className="input" type="url" inputMode="url" value={form.google_review_link} onChange={set('google_review_link')} aria-invalid={!!errors.google_review_link} placeholder="https://g.page/r/…/review" />
+          {errors.google_review_link && <span className="err">{errors.google_review_link}</span>}
+        </label>
+        <label className="field">{s.bookingLink}
+          <input className="input" type="url" inputMode="url" value={form.booking_link} onChange={set('booking_link')} aria-invalid={!!errors.booking_link} placeholder="https://squareup.com/appointments/book/…" />
+          {errors.booking_link && <span className="err">{errors.booking_link}</span>}
+        </label>
         {store.salon && !store.sample && (
           <label className="check"><input type="checkbox" checked={syncSalon} onChange={(e) => setSyncSalon(e.target.checked)} /><span>{s.useForSalon}</span></label>
         )}

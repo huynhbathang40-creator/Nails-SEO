@@ -5,7 +5,6 @@ import { useS } from '../app/ui.jsx';
 import { authErrorMessage, useAuth } from '../lib/auth.jsx';
 import { isEmail } from '../lib/calc.js';
 import { useLang } from '../lib/i18n.jsx';
-import { supabase } from '../lib/supabase.js';
 
 // Only allow redirects back into this app.
 const safeNext = (next) => (next && next.startsWith('/') && !next.startsWith('//') ? next : '/app');
@@ -17,6 +16,7 @@ export default function Login() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = safeNext(params.get('next'));
+  // New accounts go to "Create your profile" first (RequireAuth handles that).
 
   const [mode, setMode] = useState(params.get('mode') === 'signup' ? 'signup' : 'signin');
   const [form, setForm] = useState({
@@ -56,14 +56,11 @@ export default function Login() {
           full_name: form.fullName.trim(),
           salon_name: form.salonName.trim(),
           preferred_language: form.language,
+          // Details from the landing-page trial form, used to prefill "Create your profile".
+          phone: params.get('phone') || '',
+          city: params.get('city') || '',
         });
         if (needsConfirmation) { setSentTo(form.email.trim()); setStatus('idle'); return; }
-        // Details from the landing-page trial form, if the user came from there.
-        const extra = { phone: params.get('phone') || '', city: params.get('city') || '' };
-        if (extra.phone || extra.city) {
-          const { data } = await supabase.auth.getUser();
-          if (data.user) await supabase.from('profiles').update(extra).eq('id', data.user.id);
-        }
       } else {
         await auth.signIn(form.email, form.password);
       }
