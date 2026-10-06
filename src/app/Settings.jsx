@@ -5,8 +5,6 @@ import { useStore } from '../lib/store.jsx';
 import SalonFields from './SalonFields.jsx';
 import { useS } from './ui.jsx';
 
-const KEY = 'glowback:v1';
-
 export default function Settings() {
   const s = useS();
   const { toast } = useOutletContext();
@@ -30,7 +28,7 @@ export default function Settings() {
   };
 
   const exportData = () => {
-    const blob = new Blob([localStorage.getItem(KEY) || '{}'], { type: 'application/json' });
+    const blob = new Blob([localStorage.getItem(store.storageKey) || '{}'], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `glowback-backup-${new Date().toISOString().slice(0, 10)}.json`;
@@ -45,7 +43,7 @@ export default function Settings() {
     try {
       const data = JSON.parse(await file.text());
       if (!data.salon || !Array.isArray(data.clients)) throw new Error('bad');
-      localStorage.setItem(KEY, JSON.stringify(data));
+      localStorage.setItem(store.storageKey, JSON.stringify(data));
       window.location.reload();
     } catch {
       window.alert(s.restoreErr);

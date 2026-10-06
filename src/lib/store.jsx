@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_TEMPLATES, weeksSince } from './messages.js';
 
-// The salon app keeps its data in this browser (localStorage).
-// To share data across devices, swap load/save for a backend (e.g. Netlify Functions + a database).
-const KEY = 'glowback:v1';
+// The salon app keeps each account's salon data in this browser (localStorage),
+// under a key that includes the signed-in user's id.
+export const storageKeyFor = (userId) => `glowback:v1:${userId || 'guest'}`;
 
 const EMPTY = {
   salon: null,
@@ -17,9 +17,9 @@ const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(
 export const today = () => new Date().toISOString().slice(0, 10);
 const daysAgo = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
 
-function load() {
+function load(key) {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return EMPTY;
     const data = JSON.parse(raw);
     return { ...EMPTY, ...data, templates: { ...DEFAULT_TEMPLATES, ...(data.templates || {}) } };
@@ -92,12 +92,12 @@ export function clientStatus(client, salon) {
 
 const StoreContext = createContext(null);
 
-export function StoreProvider({ children }) {
-  const [data, setData] = useState(load);
+export function StoreProvider({ storageKey, children }) {
+  const [data, setData] = useState(() => load(storageKey));
 
   useEffect(() => {
-    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* storage full or blocked */ }
-  }, [data]);
+    try { localStorage.setItem(storageKey, JSON.stringify(data)); } catch { /* storage full or blocked */ }
+  }, [data, storageKey]);
 
   const update = useCallback((fn) => setData((d) => ({ ...d, ...fn(d) })), []);
 
@@ -151,7 +151,7 @@ export function StoreProvider({ children }) {
     resetAll: () => setData(EMPTY),
   }), [update]);
 
-  const value = useMemo(() => ({ ...data, ...actions }), [data, actions]);
+  const value = useMemo(() => ({ ...data, ...actions, storageKey }), [data, actions, storageKey]);
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 

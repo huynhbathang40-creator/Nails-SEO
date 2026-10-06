@@ -12,7 +12,9 @@ The project has two parts:
   - **Review replies:** paste a Google review to get a polite suggested reply to copy.
   - **Text templates** and **Salon settings** (Google review link, booking link, win-back timing).
 
-Built with React and Vite. The app saves its data in the browser on each device. Use Settings → Download backup to keep a copy.
+- **Login & profile:** email + password accounts through **Supabase Auth**. `/login` signs in or creates an account. `/app/profile` shows and edits the user's profile (name, salon, phone, city, language), changes the password and signs out. All of `/app` requires sign-in.
+
+Built with React and Vite. Accounts and profiles live in Supabase (project `glowback`, table `public.profiles`, protected by row-level security so each user can only see their own row). The salon's client list and texts are saved in the browser, separately for each account. Use Settings → Download backup to keep a copy.
 
 ## Deploy on Netlify
 
@@ -22,6 +24,14 @@ Built with React and Vite. The app saves its data in the browser on each device.
    - Publish directory: `dist`
 3. Click **Deploy**.
 4. Make forms visible: **Project configuration → Forms** → enable form detection, then redeploy once. Form submissions then show up under **Forms**.
+
+## Supabase (login)
+
+The Supabase URL and publishable key are in `src/lib/supabase.js`. They are safe to be public, so Netlify needs no extra settings. To use a different project, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` in Netlify → Project configuration → Environment variables.
+
+One setting must be changed by hand in the Supabase dashboard, because the Supabase connector can't change auth settings:
+
+- **Authentication → Sign In / Providers → Email → turn off "Confirm email" → Save.** Without this, new users must click an email link first, and Supabase's built-in email service only delivers to your own team's addresses.
 
 ## Run it on your computer
 

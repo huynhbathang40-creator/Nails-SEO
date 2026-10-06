@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Check, Close } from '../components/Icons.jsx';
 import { digits, fmtPhone, isEmail } from '../lib/calc.js';
 import { submitForm } from '../lib/forms.js';
-import { useStore } from '../lib/store.jsx';
+import { useAuth } from '../lib/auth.jsx';
 import { APP_OPTS, STATION_OPTS, TIME_OPTS } from './data.js';
 
 const PHONE_ERR = 'Please check the phone number—it should have 10 digits.';
@@ -21,7 +21,7 @@ function Field({ label, error, ...input }) {
 }
 
 export default function SignupModal({ mode, onClose }) {
-  const store = useStore();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState(INITIAL);
   const [step, setStep] = useState(1);
@@ -89,13 +89,15 @@ export default function SignupModal({ mode, onClose }) {
     send('demo', { name: form.name, salon: form.salon, phone: form.phone, time: form.time, language: form.language });
   };
 
+  // Signed in already → straight to the app. Otherwise create the account, prefilled from this form.
   const openDashboard = () => {
-    if (!store.salon || store.sample) {
-      if (store.sample) store.resetAll();
-      store.setupSalon({ name: form.salon.trim(), owner: form.name.trim(), phone: form.phone, email: form.email.trim(), city: form.city.trim(), textLanguage: form.language === 'Tiếng Việt' ? 'vi' : 'en' });
-    }
     onClose();
-    navigate('/app/setup');
+    if (user) return navigate('/app');
+    const q = new URLSearchParams({
+      mode: 'signup', email: form.email.trim(), name: form.name.trim(), salon: form.salon.trim(),
+      phone: form.phone, city: form.city.trim(), lang: form.language === 'Tiếng Việt' ? 'vi' : 'en',
+    });
+    navigate(`/login?${q}`);
   };
 
   const success = status === 'success';
@@ -129,9 +131,9 @@ export default function SignupModal({ mode, onClose }) {
                 <button type="button" className="btn btn-primary" onClick={onClose}>Done</button>
               ) : (
                 <>
-                  <p className="muted" style={{ margin: 0 }}>Want to look around now? Your dashboard is ready.</p>
+                  <p className="muted" style={{ margin: 0 }}>{user ? 'Want to look around now? Your dashboard is ready.' : 'Create your login to open your dashboard now.'}</p>
                   <div className="hstack" style={{ justifyContent: 'center' }}>
-                    <button type="button" className="btn btn-primary" onClick={openDashboard}>Open My Dashboard</button>
+                    <button type="button" className="btn btn-primary" onClick={openDashboard}>{user ? 'Open My Dashboard' : 'Create My Login'}</button>
                     <button type="button" className="btn btn-quiet" onClick={onClose}>Later</button>
                   </div>
                 </>

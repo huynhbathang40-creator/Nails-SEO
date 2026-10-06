@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Arrow, Calendar, Chair, Chat, Check, Close, Logo, Menu, PhoneOff, Search, Star, Stars } from '../components/Icons.jsx';
+import { useAuth } from '../lib/auth.jsx';
 import { useLang } from '../lib/i18n.jsx';
 import { COPY, FEED, OTHERS, PROBLEMS } from './data.js';
 import { useReducedMotion } from './hooks.js';
@@ -20,6 +21,8 @@ function LangToggle() {
 export function Header({ isDesktop, isMobile, scrollY, active, onTrial }) {
   const { lang, setLang } = useLang();
   const t = COPY[lang];
+  const { user } = useAuth();
+  const account = user ? { to: '/app', label: lang === 'vi' ? 'Bảng điều khiển' : 'My Dashboard' } : { to: '/login', label: t.signIn };
   const [menuOpen, setMenuOpen] = useState(false);
   const solid = scrollY > 80 || menuOpen;
 
@@ -46,7 +49,7 @@ export function Header({ isDesktop, isMobile, scrollY, active, onTrial }) {
             {isDesktop && (
               <>
                 <LangToggle />
-                <Link to="/app" style={{ color: 'var(--ink)', fontSize: 15, fontWeight: 500, textDecoration: 'none' }}>{t.signIn}</Link>
+                <Link to={account.to} style={{ color: 'var(--ink)', fontSize: 15, fontWeight: 500, textDecoration: 'none' }}>{account.label}</Link>
               </>
             )}
             <button type="button" className="btn btn-primary" onClick={onTrial} style={{ height: 44, padding: '0 20px', fontSize: 15 }}>{t.navCta}</button>
@@ -69,7 +72,7 @@ export function Header({ isDesktop, isMobile, scrollY, active, onTrial }) {
               <button type="button" aria-pressed={lang === 'en'} onClick={() => setLang('en')}>English</button>
               <button type="button" aria-pressed={lang === 'vi'} onClick={() => setLang('vi')}>Tiếng Việt</button>
             </div>
-            <Link to="/app" style={{ padding: '12px 0', fontWeight: 500 }}>{t.signIn}</Link>
+            <Link to={account.to} style={{ padding: '12px 0', fontWeight: 500 }}>{account.label}</Link>
             <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button type="button" className="btn btn-primary btn-block" onClick={() => { setMenuOpen(false); onTrial(); }}>{t.cta}</button>
               <p className="muted small" style={{ margin: 0, textAlign: 'center' }}>{t.micro}</p>

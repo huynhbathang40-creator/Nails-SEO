@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Back, Edit, Gear, Home, Logo, StarLine, Users } from '../components/Icons.jsx';
+import { Back, Edit, Gear, Home, Logo, StarLine, User, Users } from '../components/Icons.jsx';
+import { useAuth } from '../lib/auth.jsx';
 import { useLang } from '../lib/i18n.jsx';
 import { clientStatus, useStore } from '../lib/store.jsx';
 import { useS } from './ui.jsx';
@@ -11,6 +12,7 @@ const NAV = [
   ['reviews', '/app/reviews', StarLine],
   ['templates', '/app/templates', Edit],
   ['settings', '/app/settings', Gear],
+  ['profile', '/app/profile', User],
 ];
 
 function LangSeg() {
@@ -26,6 +28,7 @@ function LangSeg() {
 export default function AppLayout() {
   const s = useS();
   const store = useStore();
+  const auth = useAuth();
   const navigate = useNavigate();
   const [toastMsg, setToastMsg] = useState('');
   const timer = useRef(0);
@@ -51,7 +54,7 @@ export default function AppLayout() {
         <Link to="/" style={{ textDecoration: 'none', padding: '4px 10px 18px' }}><Logo size={32} fontSize={24} /></Link>
         <div style={{ padding: '0 12px 14px' }}>
           <div className="truncate" style={{ fontWeight: 600 }}>{store.salon.name}</div>
-          <div className="muted small">{s.savedLocal}</div>
+          <div className="muted small truncate" title={auth.user?.email}>{auth.user?.email}</div>
         </div>
         <nav className="app-nav" aria-label="App" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {NAV.map(([k, to, Icon, end]) => (
@@ -62,6 +65,7 @@ export default function AppLayout() {
         </nav>
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '0 8px' }}>
           <LangSeg />
+          <button type="button" className="btn btn-quiet btn-sm" onClick={async () => { await auth.signOut(); navigate('/', { replace: true }); }}>{s.profile.signOut}</button>
           <Link to="/" className="muted small" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}><Back size={14} />{s.backToSite}</Link>
         </div>
       </aside>

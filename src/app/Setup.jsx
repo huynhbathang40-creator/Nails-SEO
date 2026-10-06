@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Icons.jsx';
+import { useAuth } from '../lib/auth.jsx';
 import { useLang } from '../lib/i18n.jsx';
 import { DEFAULT_SALON, useStore } from '../lib/store.jsx';
 import SalonFields from './SalonFields.jsx';
@@ -11,8 +12,26 @@ export default function Setup() {
   const s = useS();
   const { lang, setLang } = useLang();
   const store = useStore();
+  const { profile } = useAuth();
   const navigate = useNavigate();
-  const [draft, setDraft] = useState(() => ({ ...DEFAULT_SALON, textLanguage: lang, ...(store.sample ? {} : store.salon) }));
+  const fromProfile = (p) => (p ? {
+    name: p.salon_name || '',
+    owner: p.full_name || '',
+    phone: p.phone || '',
+    city: p.city || '',
+    email: p.email || '',
+    textLanguage: p.preferred_language === 'vi' ? 'vi' : 'en',
+  } : {});
+  const [draft, setDraft] = useState(() => ({ ...DEFAULT_SALON, textLanguage: lang, ...fromProfile(profile), ...(store.sample ? {} : store.salon) }));
+  const [prefilled, setPrefilled] = useState(!!profile);
+  // The profile loads a moment after sign-in; fill the form once it arrives.
+  useEffect(() => {
+    if (profile && !prefilled) {
+      setDraft((d) => ({ ...d, ...Object.fromEntries(Object.entries(fromProfile(profile)).filter(([k, v]) => v && !d[k])) }));
+      setPrefilled(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
   const [err, setErr] = useState({});
 
   const save = (e) => {
