@@ -14,6 +14,8 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   // 'idle' (signed out) | 'loading' | 'missing' (signed in, no profile yet) | 'ready'
   const [profileStatus, setProfileStatus] = useState('idle');
+  // 'admin' | 'employee' | 'user' — from the user_roles table (null until loaded).
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const user = session?.user ?? null;
 
@@ -41,11 +43,27 @@ export function AuthProvider({ children }) {
     loadProfile().catch((e) => console.error('Could not load profile', e));
   }, [loadProfile]);
 
+  const loadRole = useCallback(async () => {
+    if (!userId) { setRole(null); return null; }
+    const { data, error } = await supabase.rpc('get_my_role');
+    const r = error ? 'user' : data || 'user';
+    setRole(r);
+    return r;
+  }, [userId]);
+
+  useEffect(() => {
+    loadRole();
+  }, [loadRole]);
+
   const value = useMemo(() => ({
     session,
     user,
     profile,
     profileStatus,
+    role,
+    isAdmin: role === 'admin',
+    isStaff: role === 'admin' || role === 'employee',
+    reloadRole: loadRole,
     loading: loading || (!!user && (profileStatus === 'idle' || profileStatus === 'loading') && !profile),
     async signIn(email, password) {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
@@ -70,6 +88,7 @@ export function AuthProvider({ children }) {
       await supabase.auth.signOut();
       setProfile(null);
       setProfileStatus('idle');
+      setRole(null);
     },
     // The user creates their own profile (or finishes one that already exists).
     async createProfile(fields) {
@@ -104,7 +123,7 @@ export function AuthProvider({ children }) {
       if (error) throw error;
     },
     reloadProfile: loadProfile,
-  }), [session, user, profile, profileStatus, loading, loadProfile]);
+  }), [session, user, profile, profileStatus, role, loading, loadProfile, loadRole]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

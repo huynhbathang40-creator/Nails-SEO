@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Back, Edit, Gear, Home, Logo, StarLine, User, Users } from '../components/Icons.jsx';
+import { Back, Edit, Gear, Home, Logo, Shield, StarLine, User, Users } from '../components/Icons.jsx';
 import { useAuth } from '../lib/auth.jsx';
 import { useLang } from '../lib/i18n.jsx';
 import { clientStatus, salonFromProfile, useStore } from '../lib/store.jsx';
@@ -72,6 +72,11 @@ export default function AppLayout() {
               <Icon />{s.navLong[k]}{badges[k] > 0 && <span className="badge">{badges[k]}</span>}
             </NavLink>
           ))}
+          {auth.isStaff && (
+            <NavLink to="/admin" style={{ marginTop: 8, background: 'var(--ink)', color: '#fff' }}>
+              <Shield color="#FFD166" />{auth.isAdmin ? 'Admin' : 'Staff'} area
+            </NavLink>
+          )}
         </nav>
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '0 8px' }}>
           <LangSeg />
@@ -83,6 +88,7 @@ export default function AppLayout() {
       <header className="app-mobile-top">
         <Link to="/app" style={{ textDecoration: 'none', minWidth: 0 }}><Logo size={28} fontSize={20} /></Link>
         <div className="hstack" style={{ flexWrap: 'nowrap' }}>
+          {auth.isStaff && <Link to="/admin" className="admin-badge" style={{ textDecoration: 'none' }}>Admin</Link>}
           <LangSeg />
           <Link to="/app/profile" aria-label={s.navLong.profile}><Avatar url={auth.profile?.avatar_url} name={auth.profile?.full_name || auth.user?.email} size={34} /></Link>
         </div>

@@ -13,6 +13,11 @@ import CreateProfile from './app/CreateProfile.jsx';
 import Profile from './app/Profile.jsx';
 import RequireAuth from './app/RequireAuth.jsx';
 import Login from './pages/Login.jsx';
+import RequireStaff from './admin/RequireStaff.jsx';
+import AdminLayout from './admin/AdminLayout.jsx';
+import AdminOverview from './admin/Overview.jsx';
+import AdminUsers from './admin/Users.jsx';
+import AdminActivity from './admin/Activity.jsx';
 
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
@@ -42,6 +47,14 @@ export default function App() {
             <Route path="settings" element={<Settings />} />
             <Route path="profile" element={<Profile />} />
             <Route path="*" element={<Navigate to="/app" replace />} />
+          </Route>
+          <Route element={<RequireStaff />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminOverview />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="activity" element={<AdminActivity />} />
+              <Route path="*" element={<Navigate to="/admin" replace />} />
+            </Route>
           </Route>
         </Route>
         <Route path="*" element={<NotFound />} />
